@@ -30,8 +30,8 @@ yt-dlp -f "bv[height<=?720]" https://www.youtube.com/watch?v=LXb3EKWsInQ -o "720
 # Cut video to 20 seconds
 ffmpeg -i 720p.webm -t 20 -map 0 -c copy 720p-20s.webm
 
-# Convert video to raw format with 10fps frame rate
-ffmpeg -i 720p-20s.webm -filter:v fps=10 -c:v rawvideo -pix_fmt yuv420p 720p-20s.yuv
+# Convert video to YUV format with 10fps frame rate
+ffmpeg -i 720p-20s.webm -filter:v fps=10 -f yuv4mpegpipe -pix_fmt yuv420p 720p-20s.yuv
 
 # Download audio
 yt-dlp -f "ba" https://www.youtube.com/watch?v=LXb3EKWsInQ -o "sound.%(ext)s"
@@ -44,7 +44,10 @@ ffmpeg -i sound-20s.webm sound-20s.wav
 
 ```
 
-**Attention:** When using `ffmpeg` to convert video to raw format, it seems that `yuv420p` should be used.
+**Attention:**
+
+1. When converting the video to YUV format, the video format should be **yuv4mpegpipe**, and the pixel format should be **yuv420p**.
+2. The configuration file below only supports **integer** FPS.
 
 ### Configure
 
@@ -182,4 +185,4 @@ TODO
 
 ## Current Problems
 
-- The output video is broken
+NONE
