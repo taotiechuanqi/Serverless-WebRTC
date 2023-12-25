@@ -19,7 +19,8 @@ Artifacts are in `target/bin/` directory. We can use `peerconnection_gcc` to run
 
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) - Download video from Youtube
 - [ffmpeg](https://ffmpeg.org/) - Convert video to raw format
-- [YUView](https://github.com/IENT/YUView) - View raw video
+
+**Attention:** [YUView](https://github.com/IENT/YUView) cannot properly play YUV videos in experiments. It is recommended to use a player based on ffmpeg instead.
 
 #### Example Steps
 
