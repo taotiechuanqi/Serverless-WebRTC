@@ -34,6 +34,11 @@ ffmpeg -i 720p.webm -t 20 -map 0 -c copy 720p-20s.webm
 # Convert video to YUV format with 10fps frame rate
 ffmpeg -i 720p-20s.webm -filter:v fps=10 -f yuv4mpegpipe -pix_fmt yuv420p 720p-20s.yuv
 
+# --- If you don't want to use audio, you can generate a silent audio file like this ---
+# Generate a 1 second silent audio file.
+ffmpeg -f lavfi -i anullsrc -t 1 -c:a pcm_s16le silent-1s.wav
+
+# --- If you want to use audio, you can download audio from Youtube like this ---
 # Download audio
 yt-dlp -f "ba" https://www.youtube.com/watch?v=LXb3EKWsInQ -o "sound.%(ext)s"
 
@@ -55,6 +60,11 @@ ffmpeg -i sound-20s.webm sound-20s.wav
 Refer to [README](./README.md) for more details.
 
 In our experiment, we use `receiver_gcc.json` and `sender_gcc.json` as configuration files.
+
+Notes:
+
+- Please change the `dest_ip` of the sender to the IP address of the receiver.
+- `autoclose` could be set larger than video or audio duration. Video or audio will be repeated automatically.
 
 `receiver_gcc.json`
 
@@ -84,15 +94,12 @@ In our experiment, we use `receiver_gcc.json` and `sender_gcc.json` as configura
         }
     },
     "audio_source": {
-        "audio_disabled": {
-            "enabled": false
-        },
         "microphone": {
             "enabled": false
         },
         "audio_file": {
             "enabled": true,
-            "file_path": "sound-20s.wav"
+            "file_path": "silent-1s.wav"
         }
     },
     "save_to_file": {
@@ -115,8 +122,6 @@ In our experiment, we use `receiver_gcc.json` and `sender_gcc.json` as configura
 ```
 
 `sender_gcc.json`
-
-Please change `dest_ip` to the IP address of the receiver.
 
 ``` json
 {
@@ -153,7 +158,7 @@ Please change `dest_ip` to the IP address of the receiver.
         },
         "audio_file": {
             "enabled": true,
-            "file_path": "sound-20s.wav"
+            "file_path": "silent-1s.wav"
         }
     },
     "save_to_file": {
@@ -179,6 +184,8 @@ After 20 seconds, the program will exit automatically.
 `outvideo.yuv` and `outaudio.wav` are the output files.
 
 `receiver.log` and `sender.log` are the log files.
+
+YUV video could be very large. If you want to play it, you can use `ffmpeg` to convert it to mp4 format like this: `ffmpeg -i outvideo.yuv outvideo.mp4`. Keep the YUV file if you want to do the evaluation.
 
 ## Evaluate
 
