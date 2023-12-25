@@ -13,9 +13,9 @@ Artifacts are in `target/bin/` directory. We can use `peerconnection_gcc` to run
 
 `mkdir run` and `cp target/bin/peerconnection_gcc run/ && cd run`
 
-### Prepare media
+### Prepare Media
 
-#### Related tools
+#### Related Tools
 
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) - Download video from Youtube
 - [ffmpeg](https://ffmpeg.org/) - Convert video to raw format
@@ -171,7 +171,7 @@ Notes:
 }
 ```
 
-### Run experiment
+### Run Experiment
 
 Run receiver first, then run sender.
 
@@ -189,8 +189,43 @@ YUV video could be very large. If you want to play it, you can use `ffmpeg` to c
 
 ## Evaluate
 
-TODO
+Use [VMAF](https://github.com/Netflix/vmaf) to evaluate the video quality.
+
+Evaluation tool comes from <https://github.com/OpenNetLab/Challenge-Environment>.
+
+### Build Tool
+
+``` bash
+# Clone the repository
+git clone https://github.com/OpenNetLab/Challenge-Environment
+
+# Build the docker image
+# If you are using a proxy, you may need to switch to global mode
+make all
+```
+
+If the build process is successful, you will have a docker image named `challenge-env`.
+
+### Run Evaluation
+
+Switch to the directory where you put the experiment artifacts.
+
+Change the file path in the command below according to your situation.
+
+Usage and options can be found in <https://github.com/OpenNetLab/Challenge-Environment/tree/master/metrics>.
+
+``` bash
+docker run --rm \
+    -v ./:/data challenge-env \
+    python3 ./metrics/eval_video.py \
+    --src_video /data/720p-20s.yuv \
+    --dst_video /data/outvideo.yuv \
+    --output /data/eval_video.json \
+    --frame_align_method None
+```
+
+VMAF score will be in `eval_video.json`.
 
 ## Current Problems
 
-NONE
+- Evaluation Result
