@@ -201,13 +201,26 @@ YUV video could be very large. If you want to play it, you can use `ffmpeg` to c
 
 Use [VMAF](https://github.com/Netflix/vmaf) to evaluate the video quality.
 
-**Attention:** Must align the frame before evaluation.
+**Attention:** Must align the frame before calculating VMAF score. Otherwise, the score will be very low.
+
+For our experiment, we have a script `evaluate.sh` to do the evaluation. It will align the frame according to the log file `sender_warn.log` and calculate the VMAF score and Drop rate.
+
+``` bash
+# Usage
+# This script need vmaf binary in the same directory
+evaluate.sh <source_video> <output_video> <target_video> <log_file>
+
+# Example
+../evaluate.sh 540p-60s.yuv 1Mbps-40s.yuv sender_warn.log
+```
+
+If you want to use VMAF directly, you can refer to the following content.
 
 ### Directly Use VMAF
 
 #### Build or Download VMAF
 
-Build VMAF from source code [VMAF](https://github.com/Netflix/vmaf) or download the pre-built binary from [VMAF Releases](https://github.com/Netflix/vmaf/releases).
+Build VMAF from source code [libvmaf](https://github.com/Netflix/vmaf/blob/master/libvmaf/README.md) or download the pre-built binary from [VMAF Releases](https://github.com/Netflix/vmaf/releases).
 
 #### Align Frame
 
