@@ -47,7 +47,17 @@ ffmpeg -i sound.webm -t 20 -map 0 -c copy sound-20s.webm
 
 # Convert audio to wav format
 ffmpeg -i sound-20s.webm sound-20s.wav
+```
 
+Another example:
+
+``` bash
+# Download Minecraft video (1920x1080, 60fps)
+wget https://media.xiph.org/video/derf/twitch/y4m/MINECRAFT.y4m
+
+# Convert video to 960x540 YUV format with 30fps frame rate 
+# Add frame number at the bottom of the video
+ffmpeg -i MINECRAFT.y4m -t 60 -filter:v fps=30,scale=-1:540,"drawtext=text='%{frame_num}': start_number=1: x=(w-tw)/2: y=h-(2*lh): fontcolor=white: fontsize=48: box=1: boxcolor=0x00000000@1" -f yuv4mpegpipe -pix_fmt yuv420p 540p-60s.yuv
 ```
 
 **Attention:**
@@ -71,7 +81,7 @@ Notes:
 ``` json
 {
     "serverless_connection": {
-        "autoclose": 20,
+        "autoclose": 40,
         "sender": {
             "enabled": false
         },
@@ -108,10 +118,10 @@ Notes:
             "file_path": "outaudio.wav"
         },
         "video": {
-            "width": 1280,
-            "height": 720,
-            "fps": 10,
-            "file_path": "outvideo.yuv"
+            "width": 960,
+            "height": 540,
+            "fps": 30,
+            "file_path": "1Mbps-40s.yuv"
         }
     },
     "logging": {
@@ -126,10 +136,10 @@ Notes:
 ``` json
 {
     "serverless_connection": {
-        "autoclose": 20,
+        "autoclose": 40,
         "sender": {
             "enabled": true,
-            "dest_ip": "100.64.0.1",
+            "dest_ip": "100.64.0.3",
             "dest_port": 8000
         },
         "receiver": {
@@ -146,10 +156,10 @@ Notes:
         },
         "video_file": {
             "enabled": true,
-            "width": 1280,
-            "height": 720,
-            "fps": 10,
-            "file_path": "720p-20s.yuv"
+            "width": 960,
+            "height": 540,
+            "fps": 30,
+            "file_path": "540p-60s.yuv"
         }
     },
     "audio_source": {
@@ -175,9 +185,9 @@ Notes:
 
 Run receiver first, then run sender.
 
-Receiver: `./peerconnection_gcc receiver_gcc.json`
+Receiver: `./peerconnection_gcc receiver_gcc.json 2>recevier_warn.log`
 
-Sender: `./peerconnection_gcc sender_gcc.json`
+Sender: `./peerconnection_gcc sender_gcc.json 2>sender_warn.log`
 
 After 20 seconds, the program will exit automatically.
 
@@ -191,9 +201,37 @@ YUV video could be very large. If you want to play it, you can use `ffmpeg` to c
 
 Use [VMAF](https://github.com/Netflix/vmaf) to evaluate the video quality.
 
+**Attention:** Must align the frame before evaluation.
+
+### Directly Use VMAF
+
+#### Build or Download VMAF
+
+Build VMAF from source code [VMAF](https://github.com/Netflix/vmaf) or download the pre-built binary from [VMAF Releases](https://github.com/Netflix/vmaf/releases).
+
+#### Align Frame
+
+``` bash
+# Get dropped frame numbers from log file
+frame_numbers=$(cat ./sender_warn.log | grep "frames number" | awk '{print "eq(n,"$8")"}' | paste -sd "+")
+
+# Delete dropped frames from source video
+ffmpeg -i 540p-60s.yuv -vf "select='not($frame_numbers)',setpts=N/FRAME_RATE/TB" -t 40 -f yuv4mpegpipe -pix_fmt yuv420p 1Mbps-source.yuv
+```
+
+#### Run VMAF
+
+``` bash
+./vmaf -r ./1Mbps-source.yuv -d ./1Mbps-40s.yuv
+```
+
+You will get frame numbers and VMAF score in the output.
+
+### Use OpenNetLab Evaluation Tool
+
 Evaluation tool comes from <https://github.com/OpenNetLab/Challenge-Environment>.
 
-### Build Tool
+#### Build Tool
 
 ``` bash
 # Clone the repository
@@ -206,13 +244,15 @@ make all
 
 If the build process is successful, you will have a docker image named `challenge-env`.
 
-### Run Evaluation
+#### Run Evaluation
 
 Switch to the directory where you put the experiment artifacts.
 
 Change the file path in the command below according to your situation.
 
 Usage and options can be found in <https://github.com/OpenNetLab/Challenge-Environment/tree/master/metrics>.
+
+The usage of the frame align method is still to be explored.
 
 ``` bash
 docker run --rm \
@@ -225,7 +265,3 @@ docker run --rm \
 ```
 
 VMAF score will be in `eval_video.json`.
-
-## Current Problems
-
-- Evaluation Result
