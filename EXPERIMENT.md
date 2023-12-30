@@ -5,13 +5,53 @@
 1. Install [depot_tools](https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools_tutorial.html#_setting_up)
 2. `sudo apt install python-is-python3` if don't have executable `python`
 3. `make docker-sync` and wait tens of minutes
-4. `make docker-peerconnection`
 
-Artifacts are in `target/bin/` directory. We can use `peerconnection_gcc` to run with gcc.
+WebRTC defaultly uses VP8 as the video codec. You can modify `media/engine/internal_encoder_factory.cc` to select video codec. We modified it to use VP9 as the video codec by default.
+
+### Build with H264
+
+Refer to [webrtc.gni](./webrtc.gni), H264 requires ffmpeg built with H264 support:
+
+``` gni
+# Enable this to build OpenH264 encoder/FFmpeg decoder. This is supported on
+# all platforms except Android and iOS. Because FFmpeg can be built
+# with/without H.264 support, |ffmpeg_branding| has to separately be set to a
+# value that includes H.264, for example "Chrome". If FFmpeg is built without
+# H.264, compilation succeeds but |H264DecoderImpl| fails to initialize.
+# CHECK THE OPENH264, FFMPEG AND H.264 LICENSES/PATENTS BEFORE BUILDING.
+# http://www.openh264.org, https://www.ffmpeg.org/
+#
+# Enabling H264 when building with MSVC is currently not supported, see
+# bugs.webrtc.org/9213#c13 for more info.
+rtc_use_h264 =
+    proprietary_codecs && !is_android && !is_ios && !(is_win && !is_clang)
+```
+
+If ffmpeg requirement is satisfied, we can enable H264 by setting `proprietary_codecs=true` in `gn args` like this:
+
+1. `gn gen out/H264 --args='is_debug=false proprietary_codecs=true'`
+2. `ninja -C out/H264 peerconnection_gcc`
+
+Artifacts are in `out/H264/` directory. We can use `peerconnection_gcc` to run with gcc.
+
+`mkdir run` and `cp out/H264/peerconnection_gcc run/ && cd run`, then run it.
+
+### Build without H264
+
+Without H264, we will use VP9 as the video codec.
+
+We can directly `make docker-peerconnection` to build artifacts in `out/Default/` directory.
+
+Or we can manually build artifacts like this:
+
+1. `gn gen out/VP9 --args='is_debug=false'`
+2. `ninja -C out/VP9 peerconnection_gcc`
+
+Artifacts are in `out/VP9/` directory. We can use `peerconnection_gcc` to run with gcc.
+
+`mkdir run` and `cp out/VP9/peerconnection_gcc run/ && cd run`, then run it.
 
 ## Run
-
-`mkdir run` and `cp target/bin/peerconnection_gcc run/ && cd run`
 
 ### Prepare Media
 
@@ -23,6 +63,19 @@ Artifacts are in `target/bin/` directory. We can use `peerconnection_gcc` to run
 **Attention:** [YUView](https://github.com/IENT/YUView) cannot properly play YUV videos in experiments. It is recommended to use a player based on ffmpeg instead.
 
 #### Example Steps
+
+##### Our Experiment Example
+
+``` bash
+# Download video with frame number
+wget https://media.xiph.org/video/derf/twitch/H264/GTAV.mp4
+
+# Convert video to YUV format with 30fps frame rate
+# ATTENTION: After this, the frame number will only have even numbers
+ffmpeg -i GTAV.mp4 -filter:v fps=30 -f yuv4mpegpipe -pix_fmt yuv420p 1080p.yuv
+```
+
+##### Youtube Video Example
 
 ``` bash
 # Download video from Youtube
@@ -49,7 +102,7 @@ ffmpeg -i sound.webm -t 20 -map 0 -c copy sound-20s.webm
 ffmpeg -i sound-20s.webm sound-20s.wav
 ```
 
-Another example:
+##### Manually Draw Frame Number Example
 
 ``` bash
 # Download Minecraft video (1920x1080, 60fps)
@@ -81,7 +134,7 @@ Notes:
 ``` json
 {
     "serverless_connection": {
-        "autoclose": 40,
+        "autoclose": 60,
         "sender": {
             "enabled": false
         },
@@ -118,10 +171,10 @@ Notes:
             "file_path": "outaudio.wav"
         },
         "video": {
-            "width": 960,
-            "height": 540,
+            "width": 1920,
+            "height": 1080,
             "fps": 30,
-            "file_path": "1Mbps-40s.yuv"
+            "file_path": "unlimited-40s.yuv"
         }
     },
     "logging": {
@@ -136,10 +189,10 @@ Notes:
 ``` json
 {
     "serverless_connection": {
-        "autoclose": 40,
+        "autoclose": 60,
         "sender": {
             "enabled": true,
-            "dest_ip": "100.64.0.3",
+            "dest_ip": "100.64.0.1",
             "dest_port": 8000
         },
         "receiver": {
@@ -156,10 +209,10 @@ Notes:
         },
         "video_file": {
             "enabled": true,
-            "width": 960,
-            "height": 540,
+            "width": 1920,
+            "height": 1080,
             "fps": 30,
-            "file_path": "540p-60s.yuv"
+            "file_path": "1080p.yuv"
         }
     },
     "audio_source": {
@@ -185,15 +238,17 @@ Notes:
 
 Run receiver first, then run sender.
 
-Receiver: `./peerconnection_gcc receiver_gcc.json 2>recevier_warn.log`
+Receiver: `rm ./receiver.log; ./peerconnection_gcc receiver_gcc.json 2>receiver_warn.log`
 
-Sender: `./peerconnection_gcc sender_gcc.json 2>sender_warn.log`
+Sender: `rm ./sender.log; ./peerconnection_gcc sender_gcc.json 2>sender_warn.log`
 
-After 20 seconds, the program will exit automatically.
+After 60 seconds, the program will exit automatically.
 
 `outvideo.yuv` and `outaudio.wav` are the output files.
 
 `receiver.log` and `sender.log` are the log files.
+
+`receiver_warn.log` and `sender_warn.log` are the warning log files.
 
 YUV video could be very large. If you want to play it, you can use `ffmpeg` to convert it to mp4 format like this: `ffmpeg -i outvideo.yuv outvideo.mp4`. Keep the YUV file if you want to do the evaluation.
 
