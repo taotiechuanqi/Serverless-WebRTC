@@ -174,7 +174,7 @@ Notes:
             "width": 1920,
             "height": 1080,
             "fps": 30,
-            "file_path": "unlimited-40s.yuv"
+            "file_path": "unlimited-60s.yuv"
         }
     },
     "logging": {
@@ -254,82 +254,48 @@ YUV video could be very large. If you want to play it, you can use `ffmpeg` to c
 
 ## Evaluate
 
-Use [VMAF](https://github.com/Netflix/vmaf) to evaluate the video quality.
+`evaluate.py` is a script to evaluate the QoE metrics, including network performance and video quality.
 
-**Attention:** Must align the frame before calculating VMAF score. Otherwise, the score will be very low.
+Network score comes from logs in `SENDER_LOG` and `RECEIVER_LOG`. You may need to set `--max_delay` and `--ground_recv_rate` accdording to your situation.
 
-For our experiment, we have a script `evaluate.sh` to do the evaluation. It will align the frame according to the log file `sender_warn.log` and calculate the VMAF score and Drop rate.
+Video quality score includes [VMAF](https://github.com/Netflix/vmaf) and other metrics. Our script will align the frame according to the log file `SENDER_LOG` and use the binary specified by `--vmaf` to calculate the VMAF score. VMAF score will be in `--vmaf_output` file, defaultly `vmaf.json`.
 
-``` bash
-# Usage
-# This script need vmaf binary in the same directory
-evaluate.sh <source_video> <output_video> <target_video> <log_file>
+Build VMAF binary from source code [libvmaf](https://github.com/Netflix/vmaf/blob/master/libvmaf/README.md) or download the pre-built binary from [VMAF Releases](https://github.com/Netflix/vmaf/releases).
 
-# Example
-../evaluate.sh 540p-60s.yuv 1Mbps-40s.yuv sender_warn.log
+QoE metrics refer to [PACC: Perception Aware Congestion Control for Real-time Communication](https://ieeexplore.ieee.org/document/10219915).
+
+Our script refers to [Challenge-Environment](https://github.com/OpenNetLab/Challenge-Environment), [e2e_delay.py](https://github.com/OpenNetLab/AlphaRTC/blob/gcc_baseline/examples/peerconnection/gcc/corpus/e2e_delay.py) and [lossless_frame_delay.py](https://github.com/OpenNetLab/AlphaRTC/blob/gcc_baseline/examples/peerconnection/gcc/corpus/lossless_frame_delay.py).
+
+### Usage
+
+``` text
+usage: evaluate.py [-h] [-o OUTPUT] -s SENDER_LOG -r RECEIVER_LOG [--max_delay MAX_DELAY] [--ground_recv_rate GROUND_RECV_RATE] --vmaf VMAF --sender_video SENDER_VIDEO --receiver_video RECEIVER_VIDEO
+                   [--vmaf_output VMAF_OUTPUT] [--threads THREADS]
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        the path of output file. It will print the result in terminal if you don't specify its value.
+  -s SENDER_LOG, --sender_log SENDER_LOG
+                        the path of sender log.
+  -r RECEIVER_LOG, --receiver_log RECEIVER_LOG
+                        the path of receiver log.
+  --max_delay MAX_DELAY
+                        the max packet delay.
+  --ground_recv_rate GROUND_RECV_RATE
+                        the receive rate of a special scenario ground truth.
+  --vmaf VMAF           the path of vmaf
+  --sender_video SENDER_VIDEO
+                        the path of sender video
+  --receiver_video RECEIVER_VIDEO
+                        the path of receiver video
+  --vmaf_output VMAF_OUTPUT
+                        the path to save vmaf json output
+  --threads THREADS     the number of threads for vmaf
 ```
 
-If you want to use VMAF directly, you can refer to the following content.
-
-### Directly Use VMAF
-
-#### Build or Download VMAF
-
-Build VMAF from source code [libvmaf](https://github.com/Netflix/vmaf/blob/master/libvmaf/README.md) or download the pre-built binary from [VMAF Releases](https://github.com/Netflix/vmaf/releases).
-
-#### Align Frame
+Example:
 
 ``` bash
-# Get dropped frame numbers from log file
-frame_numbers=$(cat ./sender_warn.log | grep "frames number" | awk '{print "eq(n,"$8")"}' | paste -sd "+")
-
-# Delete dropped frames from source video
-ffmpeg -i 540p-60s.yuv -vf "select='not($frame_numbers)',setpts=N/FRAME_RATE/TB" -t 40 -f yuv4mpegpipe -pix_fmt yuv420p 1Mbps-source.yuv
+./evaluate.py -r receiver.log -s sender.log --vmaf ./vmaf --sender_video ./1080p.yuv --receiver_video ./unlimited-60s.yuv
 ```
-
-#### Run VMAF
-
-``` bash
-./vmaf -r ./1Mbps-source.yuv -d ./1Mbps-40s.yuv
-```
-
-You will get frame numbers and VMAF score in the output.
-
-### Use OpenNetLab Evaluation Tool
-
-Evaluation tool comes from <https://github.com/OpenNetLab/Challenge-Environment>.
-
-#### Build Tool
-
-``` bash
-# Clone the repository
-git clone https://github.com/OpenNetLab/Challenge-Environment
-
-# Build the docker image
-# If you are using a proxy, you may need to switch to global mode
-make all
-```
-
-If the build process is successful, you will have a docker image named `challenge-env`.
-
-#### Run Evaluation
-
-Switch to the directory where you put the experiment artifacts.
-
-Change the file path in the command below according to your situation.
-
-Usage and options can be found in <https://github.com/OpenNetLab/Challenge-Environment/tree/master/metrics>.
-
-The usage of the frame align method is still to be explored.
-
-``` bash
-docker run --rm \
-    -v ./:/data challenge-env \
-    python3 ./metrics/eval_video.py \
-    --src_video /data/720p-20s.yuv \
-    --dst_video /data/outvideo.yuv \
-    --output /data/eval_video.json \
-    --frame_align_method None
-```
-
-VMAF score will be in `eval_video.json`.
